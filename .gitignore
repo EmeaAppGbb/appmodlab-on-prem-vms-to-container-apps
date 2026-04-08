@@ -1,0 +1,36 @@
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Container and build output
+*.tar
+*.tar.gz
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+
+# Azure Container Apps
+.azure/
+*.azurePubxml
+
+# Environment files
+.env
+.env.local
+*.local
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
