@@ -1,0 +1,17 @@
+# Cron schedule for background tasks (legacy VM 3)
+# This would be installed in /etc/crontab on the Ubuntu VM
+
+# Daily clinic report - runs at 11:59 PM every day
+59 23 * * * python3 /app/tasks/reports.py daily
+
+# Weekly summary - runs every Monday at 6:00 AM
+0 6 * * 1 python3 /app/tasks/reports.py weekly
+
+# Appointment reminders - runs every hour
+0 * * * * python3 /app/tasks/reminders.py batch
+
+# Lab result processing queue check - runs every 15 minutes
+*/15 * * * * python3 /app/worker.py check-queue
+
+# Database backup - runs daily at 2:00 AM
+0 2 * * * /app/scripts/backup-mongodb.sh

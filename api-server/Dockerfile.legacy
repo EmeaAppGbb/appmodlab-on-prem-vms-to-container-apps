@@ -1,0 +1,36 @@
+# Legacy Dockerfile simulating Ubuntu 20.04 with Node.js and MongoDB
+FROM node:14
+
+# Install MongoDB 4.4
+RUN apt-get update && apt-get install -y gnupg wget && \
+    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add - && \
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list && \
+    apt-get update && \
+    apt-get install -y mongodb-org && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy application files
+COPY . .
+
+# Create MongoDB data directory and shared documents folder
+RUN mkdir -p /data/db /app/shared-documents/lab-results
+
+# Create startup script to run both MongoDB and Node.js app
+RUN echo '#!/bin/bash\n\
+mongod --fork --logpath /var/log/mongodb.log --dbpath /data/db\n\
+sleep 5\n\
+node /app/seed.js\n\
+npm start' > /app/start.sh && chmod +x /app/start.sh
+
+EXPOSE 3000 27017
+
+CMD ["/app/start.sh"]

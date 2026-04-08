@@ -1,0 +1,53 @@
+# Legacy Dockerfile simulating Windows Server 2019 with IIS and SQL Server
+# Uses multi-stage build to create a production-like legacy VM setup
+
+FROM mcr.microsoft.com/dotnet/sdk:3.1 AS build
+WORKDIR /src
+
+COPY ["PawsCare.Web.csproj", "./"]
+RUN dotnet restore "PawsCare.Web.csproj"
+
+COPY . .
+RUN dotnet build "PawsCare.Web.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "PawsCare.Web.csproj" -c Release -o /app/publish
+
+# Final stage - includes both web app and SQL Server
+FROM mcr.microsoft.com/dotnet/aspnet:3.1
+WORKDIR /app
+
+# Install SQL Server tools and dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    apt-transport-https \
+    gnupg \
+    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
+    && curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y msodbcsql17 mssql-tools \
+    && echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install SQL Server
+RUN curl https://packages.microsoft.com/config/ubuntu/20.04/mssql-server-2019.list > /etc/apt/sources.list.d/mssql-server-2019.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y mssql-server \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=publish /app/publish .
+
+# Create a startup script to run both SQL Server and the web app
+RUN echo '#!/bin/bash\n\
+/opt/mssql/bin/sqlservr &\n\
+sleep 30\n\
+/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P PawsCare123! -Q "CREATE DATABASE PawsCare"\n\
+dotnet PawsCare.Web.dll' > /app/start.sh && chmod +x /app/start.sh
+
+ENV ACCEPT_EULA=Y
+ENV SA_PASSWORD=PawsCare123!
+
+EXPOSE 80
+ENTRYPOINT ["/app/start.sh"]

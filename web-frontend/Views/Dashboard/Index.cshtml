@@ -1,0 +1,90 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container mt-4">
+    <h1 class="mb-4">PawsCare Veterinary Network - Dashboard</h1>
+    
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @ViewBag.Error
+        </div>
+    }
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Patients</h5>
+                    <p class="card-text display-4">@ViewBag.TotalPatients</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Pet Owners</h5>
+                    <p class="card-text display-4">@ViewBag.TotalOwners</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Veterinarians</h5>
+                    <p class="card-text display-4">@ViewBag.TotalVets</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Today's Appointments</h5>
+                    <p class="card-text display-4">@ViewBag.TodayAppointments</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a asp-controller="Appointment" asp-action="Create" class="btn btn-primary btn-block mb-2">Book Appointment</a>
+                    <a asp-controller="Patient" asp-action="Create" class="btn btn-success btn-block mb-2">Add New Patient</a>
+                    <a asp-controller="Owner" asp-action="Create" class="btn btn-info btn-block">Register Pet Owner</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Appointments</h5>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.RecentAppointments != null && ViewBag.RecentAppointments.Count > 0)
+                    {
+                        <ul class="list-group">
+                            @foreach (var appointment in ViewBag.RecentAppointments)
+                            {
+                                <li class="list-group-item">
+                                    <strong>@appointment.PatientName</strong> - @appointment.AppointmentType
+                                    <br />
+                                    <small>@appointment.AppointmentDate.ToString("MMM dd, yyyy HH:mm")</small>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No recent appointments</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

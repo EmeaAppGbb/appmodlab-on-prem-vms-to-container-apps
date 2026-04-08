@@ -1,0 +1,38 @@
+@model IEnumerable<PawsCare.Web.Models.Patient>
+@{
+    ViewData["Title"] = "Patients";
+}
+
+<div class="container mt-4">
+    <h1>Patients</h1>
+    <a asp-action="Create" class="btn btn-primary mb-3">Add New Patient</a>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Species</th>
+                <th>Breed</th>
+                <th>Owner</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null)
+            {
+                @foreach (var patient in Model)
+                {
+                    <tr>
+                        <td>@patient.Name</td>
+                        <td>@patient.Species</td>
+                        <td>@patient.Breed</td>
+                        <td>@patient.OwnerName</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@patient.Id" class="btn btn-sm btn-info">Details</a>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
