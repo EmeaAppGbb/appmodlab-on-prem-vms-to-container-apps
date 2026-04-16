@@ -1,0 +1,117 @@
+ÔùÅ List directory .
+  Ôöö 13 files found
+
+ÔùÅ Read docker-compose.yml
+  Ôöö 82 lines read
+
+ÔùÅ List directory api-server
+  Ôöö 7 files found
+
+ÔùÅ List directory web-frontend
+  Ôöö 12 files found
+
+ÔùÅ List directory background-worker
+  Ôöö 6 files found
+
+ÔùÅ Read Dockerfile
+  Ôöé api-server\Dockerfile
+  Ôöö 33 lines read
+
+ÔùÅ Read Dockerfile
+  Ôöé background-worker\Dockerfile
+  Ôöö 36 lines read
+
+ÔùÅ Read Dockerfile
+  Ôöé web-frontend\Dockerfile
+  Ôöö 36 lines read
+
+ÔùÅ Read server.js
+  Ôöé api-server\server.js
+  Ôöö 93 lines read
+
+ÔùÅ Read worker.py
+  Ôöé background-worker\worker.py
+  Ôöö 148 lines read
+
+Now I have a clear picture. Let me implement all the changes.
+
+Ô£ù edit edit the file at C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps\docker-compose.ymlÔÇª
+  Ôöö Invalid inputs: old_str is required
+
+ÔùÅ Create docker-compose.override.yml +36
+
+ÔùÅ Read docker-compose.yml
+  Ôöö 82 lines read
+
+I need to replace the entire file content. Let me use the full content as old_str:
+
+ÔùÅ Edit docker-compose.yml +48 -6
+
+Now let me create the scripts directory and test scripts:
+
+ÔùÅ Create scripts directory (shell)
+  Ôöé New-Item -ItemType Directory -Path
+  Ôöé "C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps\scripts" -Force
+  Ôöö 4 lines...
+
+ÔùÅ Create test-local.sh +92
+  Ôöö scripts\test-local.sh
+
+ÔùÅ Create test-local.ps1 +103
+  Ôöö scripts\test-local.ps1
+
+Now let me validate the docker-compose files and verify everything looks correct:
+
+ÔùÅ Validate docker-compose config (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps; docker compose
+  Ôöé config --quiet 2>&1
+  Ôöö 1 line...
+
+Config is valid. Let me verify the final files:
+
+ÔùÅ Read docker-compose.yml
+  Ôöö 124 lines read
+
+ÔùÅ Read docker-compose.override.yml
+  Ôöö 35 lines read
+
+Now let me commit the changes:
+
+ÔùÅ Stage and check changes (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps; git add
+  Ôöé docker-compose.yml docker-compose.override.yml scripts/test-local.sh
+  Ôöé scripts/test-local.ps1; git --no-pager diff --cached --stat
+  Ôöö 9 lines...
+
+The `.gitignore` excludes `docker-compose.override.yml`. That's actually correct behavior ÔÇö override files are typically local-only. But since we want it tracked, let me force-add it:
+
+ÔùÅ Force-add override file (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps; git add -f
+  Ôöé docker-compose.override.yml; git --no-pager diff --cached --stat
+  Ôöö 6 lines...
+
+ÔùÅ Commit all changes (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps; git commit -m
+  Ôöé "Update docker-compose for optimized Dockerfiles with healthchecks and
+  Ôöé test scripts
+  Ôöé
+  Ôöé - Add healthcheck configurations for all 6 services (infra + app)ÔÇª
+  Ôöö 15 lines...
+
+All changes committed. Here's a summary of what was done:
+
+**docker-compose.yml** ÔÇö Added healthchecks for all 6 services:
+- **Infrastructure**: MongoDB (`mongo --eval`), RabbitMQ (`rabbitmq-diagnostics ping`), SQL Server (`sqlcmd`)
+- **App services**: api-server (`curl /health`), background-worker (`pgrep`), web-frontend (`curl :8080/health`)
+- Changed `depends_on` to use `condition: service_healthy` for proper startup ordering
+- All services reference `Dockerfile` (not `Dockerfile.legacy`)
+- Web frontend maps `8380:8080` matching `ASPNETCORE_URLS=http://+:8080`
+
+**docker-compose.override.yml** ÔÇö Local dev overrides with volume mounts for live reload and debug environment variables for all three app services.
+
+**scripts/test-local.sh & test-local.ps1** ÔÇö Cross-platform test scripts that validate health endpoints, patients/appointments/prescriptions/labresults APIs, web frontend, and Docker container health status.
+
+
+Changes   +279 -6
+Requests  3 Premium (2m 33s)
+Tokens    Ôåæ 490.4k ÔÇó Ôåô 8.2k ÔÇó 450.4k (cached)

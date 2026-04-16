@@ -1,0 +1,35 @@
+# Local development overrides
+# This file is automatically loaded by docker-compose alongside docker-compose.yml
+services:
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    volumes:
+      - ./api-server:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DEBUG=express:*
+
+  background-worker:
+    build:
+      context: ./background-worker
+      dockerfile: Dockerfile
+    volumes:
+      - ./background-worker:/app
+      - /app/__pycache__
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  web-frontend:
+    build:
+      context: ./web-frontend
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__Microsoft=Information
