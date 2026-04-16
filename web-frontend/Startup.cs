@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PawsCare.Web.Data;
 using PawsCare.Web.Services;
 
@@ -29,10 +30,11 @@ namespace PawsCare.Web
             // HTTP client for API server calls (hardcoded IP)
             services.AddHttpClient<IApiService, ApiService>(client =>
             {
-                client.BaseAddress = new System.Uri(Configuration["ApiServer:BaseUrl"]);
+                client.BaseAddress = new System.Uri(Configuration["ApiServer:BaseUrl"]!);
             });
             
             services.AddSession();
+            services.AddHealthChecks();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -53,6 +55,7 @@ namespace PawsCare.Web
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapHealthChecks("/health");
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Dashboard}/{action=Index}/{id?}");

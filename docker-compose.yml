@@ -1,0 +1,82 @@
+services:
+  mongodb:
+    image: mongo:4.4
+    ports:
+      - "8382:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      vm_network:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "8383:5672"
+      - "8384:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      vm_network:
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+      - "8385:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=PawsCare123!
+    networks:
+      vm_network:
+
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    ports:
+      - "8381:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/pawscare
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      vm_network:
+
+  background-worker:
+    build:
+      context: ./background-worker
+      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - API_SERVER_URL=http://api-server:3000
+    depends_on:
+      - rabbitmq
+      - api-server
+    networks:
+      vm_network:
+
+  web-frontend:
+    build:
+      context: ./web-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8380:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__SqlServer=Server=sqlserver;Database=PawsCare;User Id=sa;Password=PawsCare123!;TrustServerCertificate=true
+      - ApiServer__BaseUrl=http://api-server:3000
+    depends_on:
+      - api-server
+      - sqlserver
+    networks:
+      vm_network:
+
+networks:
+  vm_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

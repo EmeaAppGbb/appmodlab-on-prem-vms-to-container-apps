@@ -1,7 +1,5 @@
-# Docker
-Dockerfile
+# Docker (legacy only)
 .dockerignore
-docker-compose.yml
 docker-compose.override.yml
 
 # Container and build output
