@@ -1,0 +1,102 @@
+name: Build and Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || '<your-resource-group>' }}
+  AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'eastus' }}
+  BASE_NAME: pawscare
+  DEPLOY_ENVIRONMENT: dev
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --location "${{ env.AZURE_LOCATION }}" \
+            --output none
+
+      - name: Deploy infrastructure (ACR + Environment)
+        id: infra
+        run: |
+          output=$(az deployment group create \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --template-file infrastructure/main.bicep \
+            --parameters \
+              environment="${{ env.DEPLOY_ENVIRONMENT }}" \
+              baseName="${{ env.BASE_NAME }}" \
+            --query "properties.outputs" \
+            --output json)
+
+          echo "ACR_LOGIN_SERVER=$(echo "$output" | jq -r '.acrLoginServer.value')" >> "$GITHUB_OUTPUT"
+          echo "ACR_NAME=$(echo "$output" | jq -r '.acrName.value')" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ACR
+        run: az acr login --name "${{ steps.infra.outputs.ACR_NAME }}"
+
+      - name: Build and push web-frontend
+        run: |
+          docker build -t "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/web-frontend:${{ steps.tag.outputs.IMAGE_TAG }}" ./web-frontend
+          docker push "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/web-frontend:${{ steps.tag.outputs.IMAGE_TAG }}"
+
+      - name: Build and push api-server
+        run: |
+          docker build -t "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/api-server:${{ steps.tag.outputs.IMAGE_TAG }}" ./api-server
+          docker push "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/api-server:${{ steps.tag.outputs.IMAGE_TAG }}"
+
+      - name: Build and push background-worker
+        run: |
+          docker build -t "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/background-worker:${{ steps.tag.outputs.IMAGE_TAG }}" ./background-worker
+          docker push "${{ steps.infra.outputs.ACR_LOGIN_SERVER }}/pawscare/background-worker:${{ steps.tag.outputs.IMAGE_TAG }}"
+
+      - name: Deploy Container Apps
+        id: deploy
+        run: |
+          output=$(az deployment group create \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --template-file infrastructure/deploy.bicep \
+            --parameters \
+              environment="${{ env.DEPLOY_ENVIRONMENT }}" \
+              baseName="${{ env.BASE_NAME }}" \
+              imageTag="${{ steps.tag.outputs.IMAGE_TAG }}" \
+            --query "properties.outputs" \
+            --output json)
+
+          echo "WEB_URL=$(echo "$output" | jq -r '.webFrontendUrl.value')" >> "$GITHUB_OUTPUT"
+          echo "API_FQDN=$(echo "$output" | jq -r '.apiServerFqdn.value')" >> "$GITHUB_OUTPUT"
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 PawsCare Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Resource | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **ACR** | \`${{ steps.infra.outputs.ACR_LOGIN_SERVER }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Image Tag** | \`${{ steps.tag.outputs.IMAGE_TAG }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Web Frontend** | ${{ steps.deploy.outputs.WEB_URL }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **API Server** | \`${{ steps.deploy.outputs.API_FQDN }}\` |" >> "$GITHUB_STEP_SUMMARY"
