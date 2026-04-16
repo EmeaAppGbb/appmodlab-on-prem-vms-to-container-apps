@@ -1,0 +1,96 @@
+ÔùÅ List directory assets
+  Ôöö 4 files found
+
+ÔùÅ List directory scripts
+  Ôöö 4 files found
+
+ÔùÅ List directory infrastructure
+  Ôöö 6 files found
+
+ÔùÅ Read deploy.bicep
+  Ôöé infrastructure\deploy.bicep
+  Ôöö 153 lines read
+
+ÔùÅ List directory infrastructure\modules
+  Ôöö 3 files found
+
+ÔùÅ Read container-apps-env.bicep
+  Ôöé infrastructure\modules\container-apps-env.bicep
+  Ôöö 105 lines read
+
+ÔùÅ Read container-app.bicep
+  Ôöé infrastructure\modules\container-app.bicep
+  Ôöö 142 lines read
+
+Now I have full context. Let me implement all changes.
+
+ÔùÅ Edit container-app.bicep +3
+  Ôöö infrastructure\modules\container-app.bicep
+
+ÔùÅ Edit container-app.bicep +1
+  Ôöö infrastructure\modules\container-app.bicep
+
+Now update deploy.bicep with scaling configurations for each service:
+
+ÔùÅ Edit deploy.bicep +4
+  Ôöö infrastructure\deploy.bicep
+
+ÔùÅ Edit deploy.bicep +34 -5
+  Ôöö infrastructure\deploy.bicep
+
+Now create the remaining files in parallel:
+
+ÔùÅ Create load-test.ps1 +121
+  Ôöö scripts\load-test.ps1
+
+ÔùÅ Create keda-scalers.bicep +42
+  Ôöö infrastructure\modules\keda-scalers.bicep
+
+ÔùÅ Create load-test.sh +113
+  Ôöö scripts\load-test.sh
+
+ÔùÅ Create scaling-config.md +112
+  Ôöö assets\scaling-config.md
+
+Let me verify the final state of the modified files:
+
+ÔùÅ Read container-app.bicep
+  Ôöé infrastructure\modules\container-app.bicep
+  Ôöö 146 lines read
+
+ÔùÅ Read deploy.bicep
+  Ôöé infrastructure\deploy.bicep
+  Ôöö 186 lines read
+
+Now let me commit all changes:
+
+ÔùÅ Check git status of changes (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps && git
+  Ôöé --no-pager diff --stat && git --no-pager diff --name-only --diff-filter=A
+  Ôöé HEAD 2>$null; git ls-files --others --exclude-standard
+  Ôöö 9 lines...
+
+ÔùÅ Commit all KEDA scaling changes (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps && git add
+  Ôöé infrastructure/deploy.bicep infrastructure/modules/container-app.bicep
+  Ôöé infrastructure/modules/keda-scalers.bicep scripts/load-test.ps1
+  Ôöé scripts/load-test.sh assets/scaling-config.md && git commit -m "Configure
+  Ôöé KEDA auto-scaling rules for Container AppsÔÇª
+  Ôöö 21 lines...
+
+All done. Here's a summary of the 6 files changed:
+
+**Modified:**
+- **`infrastructure/modules/container-app.bicep`** ÔÇö Added `scalingRules` array parameter; scale block now passes rules to KEDA when provided
+- **`infrastructure/deploy.bicep`** ÔÇö Updated all 3 services with specific scaling configs + `serviceBusConnectionString` param + `kedaScalers` module reference
+
+**Created:**
+- **`infrastructure/modules/keda-scalers.bicep`** ÔÇö Service Bus queue KEDA scaler (queue: `background-tasks`, threshold: 5 messages)
+- **`scripts/load-test.ps1`** ÔÇö PowerShell load test sending batched requests, then querying replica counts via `az` CLI
+- **`scripts/load-test.sh`** ÔÇö Bash equivalent with `curl` concurrency
+- **`assets/scaling-config.md`** ÔÇö Documents all scaling rules, thresholds, and expected behavior at low/medium/high traffic
+
+
+Changes   +430 -5
+Requests  3 Premium (2m 33s)
+Tokens    Ôåæ 400.9k ÔÇó Ôåô 9.0k ÔÇó 358.2k (cached)

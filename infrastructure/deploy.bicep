@@ -15,6 +15,10 @@ param acrSku string = 'Basic'
 @description('Container image tag')
 param imageTag string = 'latest'
 
+@description('Service Bus connection string for KEDA scaling')
+@secure()
+param serviceBusConnectionString string = ''
+
 // --- Variables ---
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var acrName = '${baseName}acr${uniqueSuffix}'
@@ -55,6 +59,14 @@ module containerAppsEnv 'modules/container-apps-env.bicep' = {
   }
 }
 
+// --- KEDA Scaler Definitions ---
+module kedaScalers 'modules/keda-scalers.bicep' = {
+  name: 'keda-scalers'
+  params: {
+    serviceBusConnectionString: serviceBusConnectionString
+  }
+}
+
 // --- Container Apps ---
 
 // Web Frontend (ASP.NET Core - port 8080)
@@ -75,7 +87,17 @@ module webFrontend 'modules/container-app.bicep' = {
     cpuCores: '0.5'
     memory: '1Gi'
     minReplicas: 1
-    maxReplicas: 3
+    maxReplicas: 10
+    scalingRules: [
+      {
+        name: 'http-scaling'
+        http: {
+          metadata: {
+            concurrentRequests: '10'
+          }
+        }
+      }
+    ]
     envVars: [
       { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
       { name: 'ASPNETCORE_ENVIRONMENT', value: environment == 'prod' ? 'Production' : 'Development' }
@@ -102,8 +124,18 @@ module apiServer 'modules/container-app.bicep' = {
     registryPassword: acr.outputs.adminPassword
     cpuCores: '0.5'
     memory: '1Gi'
-    minReplicas: 1
-    maxReplicas: 5
+    minReplicas: 2
+    maxReplicas: 20
+    scalingRules: [
+      {
+        name: 'http-scaling'
+        http: {
+          metadata: {
+            concurrentRequests: '20'
+          }
+        }
+      }
+    ]
     envVars: [
       { name: 'DAPR_HTTP_PORT', value: '3500' }
     ]
@@ -127,8 +159,9 @@ module backgroundWorker 'modules/container-app.bicep' = {
     registryPassword: acr.outputs.adminPassword
     cpuCores: '0.25'
     memory: '0.5Gi'
-    minReplicas: 1
-    maxReplicas: 3
+    minReplicas: 0
+    maxReplicas: 5
+    scalingRules: kedaScalers.outputs.serviceBusScalingRules
     envVars: [
       { name: 'DAPR_HTTP_PORT', value: '3500' }
       { name: 'APP_PORT', value: '8080' }

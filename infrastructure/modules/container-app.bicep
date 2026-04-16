@@ -40,6 +40,9 @@ param minReplicas int = 0
 @description('Maximum number of replicas')
 param maxReplicas int = 3
 
+@description('KEDA scaling rules for the Container App')
+param scalingRules array = []
+
 @description('Container registry server')
 param registryServer string = ''
 
@@ -124,6 +127,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       scale: {
         minReplicas: minReplicas
         maxReplicas: maxReplicas
+        rules: empty(scalingRules) ? null : scalingRules
       }
     }
   }
