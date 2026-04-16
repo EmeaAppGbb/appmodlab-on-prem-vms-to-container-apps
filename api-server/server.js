@@ -3,9 +3,11 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const amqp = require('amqplib');
+const { isDaprEnabled, publishEvent } = require('./dapr-client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const USE_DAPR = isDaprEnabled();
 
 // Middleware
 app.use(cors());
@@ -28,29 +30,53 @@ mongoose.connect(MONGODB_URI, {
 .then(() => console.log('✓ Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// Connect to RabbitMQ (legacy message queue on VM 3)
-async function connectRabbitMQ() {
-    try {
-        const connection = await amqp.connect(RABBITMQ_URL);
-        rabbitmqChannel = await connection.createChannel();
-        await rabbitmqChannel.assertQueue('appointment_reminders', { durable: true });
-        await rabbitmqChannel.assertQueue('lab_results', { durable: true });
-        console.log('✓ Connected to RabbitMQ');
-    } catch (err) {
-        console.error('RabbitMQ connection error:', err.message);
-        setTimeout(connectRabbitMQ, 5000); // Retry after 5 seconds
+// --- Messaging: Dapr pub/sub or legacy RabbitMQ ---
+
+if (USE_DAPR) {
+    console.log(`✓ Dapr sidecar detected (HTTP port: ${process.env.DAPR_HTTP_PORT}). Using Dapr pub/sub.`);
+} else {
+    // Connect to RabbitMQ (legacy message queue on VM 3)
+    async function connectRabbitMQ() {
+        try {
+            const connection = await amqp.connect(RABBITMQ_URL);
+            rabbitmqChannel = await connection.createChannel();
+            await rabbitmqChannel.assertQueue('appointment_reminders', { durable: true });
+            await rabbitmqChannel.assertQueue('lab_results', { durable: true });
+            console.log('✓ Connected to RabbitMQ (legacy mode)');
+        } catch (err) {
+            console.error('RabbitMQ connection error:', err.message);
+            setTimeout(connectRabbitMQ, 5000);
+        }
     }
+    connectRabbitMQ();
 }
 
-connectRabbitMQ();
-
-// Helper function to publish message to RabbitMQ
-function publishToQueue(queueName, message) {
-    if (rabbitmqChannel) {
-        rabbitmqChannel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
+/**
+ * Publish a message to a topic/queue.
+ * Uses Dapr pub/sub when available, falls back to direct RabbitMQ.
+ * @param {string} topicOrQueue - Topic/queue name
+ * @param {object} message - Message payload
+ * @returns {Promise<void>}
+ */
+async function publishMessage(topicOrQueue, message) {
+    if (USE_DAPR) {
+        try {
+            await publishEvent('pubsub', topicOrQueue, message);
+        } catch (err) {
+            console.error(`Dapr publish error (${topicOrQueue}):`, err.message);
+        }
+    } else if (rabbitmqChannel) {
+        rabbitmqChannel.sendToQueue(topicOrQueue, Buffer.from(JSON.stringify(message)), {
             persistent: true
         });
     }
+}
+
+// Legacy alias kept for backward compatibility with route handlers
+function publishToQueue(queueName, message) {
+    publishMessage(queueName, message).catch(err =>
+        console.error(`publishToQueue error (${queueName}):`, err.message)
+    );
 }
 
 // Routes
@@ -69,7 +95,7 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'healthy', 
         mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        rabbitmq: rabbitmqChannel ? 'connected' : 'disconnected'
+        messaging: USE_DAPR ? 'dapr' : (rabbitmqChannel ? 'rabbitmq' : 'disconnected')
     });
 });
 

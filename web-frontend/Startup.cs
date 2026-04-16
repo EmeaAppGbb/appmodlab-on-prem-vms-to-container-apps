@@ -27,11 +27,28 @@ namespace PawsCare.Web
             services.AddDbContext<PawsCareDbContext>(options =>
                 options.UseSqlServer(Configuration.GetConnectionString("SqlServer")));
             
-            // HTTP client for API server calls (hardcoded IP)
-            services.AddHttpClient<IApiService, ApiService>(client =>
+            // HTTP client for API server calls
+            var daprHttpPort = Configuration["Dapr:HttpPort"];
+            var daprAppId = Configuration["Dapr:ApiServerAppId"];
+
+            if (!string.IsNullOrEmpty(daprHttpPort))
             {
-                client.BaseAddress = new System.Uri(Configuration["ApiServer:BaseUrl"]!);
-            });
+                // Dapr mode: route through sidecar for service invocation
+                services.AddHttpClient<IApiService, DaprApiService>(client =>
+                {
+                    client.BaseAddress = new System.Uri(
+                        $"http://localhost:{daprHttpPort}/v1.0/invoke/{daprAppId}/method/");
+                });
+                System.Console.WriteLine($"✓ Using Dapr service invocation (port: {daprHttpPort}, app: {daprAppId})");
+            }
+            else
+            {
+                // Legacy mode: direct HTTP call to API server (hardcoded IP)
+                services.AddHttpClient<IApiService, ApiService>(client =>
+                {
+                    client.BaseAddress = new System.Uri(Configuration["ApiServer:BaseUrl"]!);
+                });
+            }
             
             services.AddSession();
             services.AddHealthChecks();

@@ -1,0 +1,98 @@
+# Dapr sidecar overlay for docker-compose.
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dapr.yml up
+#
+# Each Dapr sidecar shares the network namespace of its app container
+# (network_mode: "service:<app>") so that localhost communication works.
+
+services:
+  # --- Tracing backend ---
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    networks:
+      vm_network:
+
+  # --- Override app services with Dapr env vars ---
+  api-server:
+    environment:
+      - DAPR_HTTP_PORT=3500
+
+  background-worker:
+    environment:
+      - DAPR_HTTP_PORT=3500
+      - APP_PORT=8080
+
+  web-frontend:
+    environment:
+      - Dapr__HttpPort=3500
+      - Dapr__ApiServerAppId=api-server
+
+  # --- Dapr sidecars ---
+  api-server-dapr:
+    image: "daprio/daprd:1.14.4"
+    command:
+      [
+        "./daprd",
+        "--app-id", "api-server",
+        "--app-port", "3000",
+        "--dapr-http-port", "3500",
+        "--dapr-grpc-port", "50001",
+        "--resources-path", "/components",
+        "--config", "/config/config.yaml",
+        "--log-level", "info"
+      ]
+    volumes:
+      - ./dapr/components:/components:ro
+      - ./dapr:/config:ro
+    network_mode: "service:api-server"
+    depends_on:
+      api-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  background-worker-dapr:
+    image: "daprio/daprd:1.14.4"
+    command:
+      [
+        "./daprd",
+        "--app-id", "background-worker",
+        "--app-port", "8080",
+        "--app-protocol", "http",
+        "--dapr-http-port", "3500",
+        "--dapr-grpc-port", "50001",
+        "--resources-path", "/components",
+        "--config", "/config/config.yaml",
+        "--log-level", "info"
+      ]
+    volumes:
+      - ./dapr/components:/components:ro
+      - ./dapr:/config:ro
+    network_mode: "service:background-worker"
+    depends_on:
+      background-worker:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  web-frontend-dapr:
+    image: "daprio/daprd:1.14.4"
+    command:
+      [
+        "./daprd",
+        "--app-id", "web-frontend",
+        "--app-port", "8080",
+        "--dapr-http-port", "3500",
+        "--dapr-grpc-port", "50001",
+        "--resources-path", "/components",
+        "--config", "/config/config.yaml",
+        "--log-level", "info"
+      ]
+    volumes:
+      - ./dapr/components:/components:ro
+      - ./dapr:/config:ro
+    network_mode: "service:web-frontend"
+    depends_on:
+      web-frontend:
+        condition: service_healthy
