@@ -129,45 +129,64 @@ docker-compose up -d
 
 ```
 appmodlab-on-prem-vms-to-container-apps/
-├── 📜 README.md                    ← You are here! 🌟
-├── 📘 APPMODLAB.md                 ← Full lab walkthrough
-├── 🏥 pawscare-system/
-│   ├── 🌐 web-frontend/            ← ASP.NET Core MVC (VM 1)
-│   │   ├── PawsCare.Web.csproj
-│   │   ├── Controllers/
-│   │   ├── Views/
-│   │   ├── appsettings.json        ← Hardcoded IPs (gasp!)
-│   │   └── Dockerfile              ← Multi-stage .NET build
-│   ├── 🔌 api-server/              ← Node.js Express (VM 2)
-│   │   ├── package.json
-│   │   ├── server.js
-│   │   ├── routes/
-│   │   ├── models/
-│   │   └── Dockerfile              ← Optimized Node.js image
-│   ├── ⚙️ background-worker/       ← Python Celery (VM 3)
-│   │   ├── requirements.txt
-│   │   ├── worker.py
-│   │   ├── tasks/
-│   │   └── Dockerfile              ← Python multi-stage build
-│   └── 🏗️ infrastructure/
-│       ├── network-diagram.png     ← The "before" topology
-│       └── vm-setup-scripts/       ← Legacy VM provisioning
-├── 🎭 dapr-config/
-│   ├── pubsub.yaml                 ← Service Bus configuration
-│   ├── statestore.yaml             ← Cosmos DB state management
+├── 📜 README.md                         ← You are here! 🌟
+├── 📘 APPMODLAB.md                      ← Full lab walkthrough
+├── 📋 QUICKSTART.md                     ← Quick-start guide
+│
+├── 🌐 web-frontend/                     ← ASP.NET Core 8 MVC (Container 1)
+│   ├── PawsCare.Web.csproj
+│   ├── Program.cs / Startup.cs
+│   ├── Controllers/ Views/ Services/
+│   ├── appsettings.json                 ← Dapr + SQL config
+│   ├── Dockerfile                       ← Multi-stage .NET 8 build
+│   └── Dockerfile.legacy                ← Original VM-style build
+│
+├── 🔌 api-server/                       ← Node.js 18 + Express (Container 2)
+│   ├── package.json / server.js
+│   ├── routes/                          ← patients, appointments, labresults, prescriptions
+│   ├── models/                          ← Mongoose schemas
+│   ├── Dockerfile                       ← Optimized Node.js image
+│   └── Dockerfile.legacy
+│
+├── ⚙️  background-worker/                ← Python 3.11 + Flask (Container 3)
+│   ├── worker.py                        ← Dapr subscriber + RabbitMQ fallback
+│   ├── tasks/                           ← lab_processing.py, reminders.py
+│   ├── requirements.txt
+│   ├── Dockerfile                       ← Multi-stage Python build
+│   └── Dockerfile.legacy
+│
+├── 🎭 dapr/                             ← Dapr configuration
+│   ├── config.yaml                      ← Tracing (Zipkin) + metrics
 │   └── components/
-├── ☁️ azure-infrastructure/
-│   ├── main.bicep                  ← Infrastructure as Code
-│   ├── container-apps.bicep
-│   ├── cosmos-db.bicep
-│   ├── service-bus.bicep
-│   └── blob-storage.bicep
-├── 🔄 .github/workflows/
-│   └── deploy.yml                  ← CI/CD magic
-├── 🐳 docker-compose.yml           ← Local VM simulation
-└── 📊 architecture/
-    ├── before.png                  ← VM topology
-    └── after.png                   ← Container Apps architecture
+│       ├── pubsub.yaml                  ← RabbitMQ (local dev)
+│       ├── azure-pubsub.yaml            ← Azure Service Bus (prod)
+│       ├── statestore.yaml              ← MongoDB (local dev)
+│       ├── azure-statestore.yaml        ← Cosmos DB (prod)
+│       └── azure-blobstore.yaml         ← Azure Blob Storage binding
+│
+├── 🏗️  infrastructure/                   ← Bicep IaC templates
+│   ├── main.bicep                       ← Log Analytics, ACR, Container Apps Env
+│   ├── deploy.bicep                     ← Container App definitions + KEDA rules
+│   ├── azure-services.bicep             ← Cosmos DB, Service Bus, Blob, SQL
+│   ├── modules/                         ← Reusable Bicep modules
+│   └── vm-setup-scripts/                ← Legacy VM provisioning (reference)
+│
+├── 🧪 scripts/                           ← Automation & testing
+│   ├── deploy-azure.ps1 / .sh           ← Full Azure deployment pipeline
+│   ├── test-local.ps1 / .sh             ← Local container smoke tests
+│   ├── validate-e2e.ps1 / .sh           ← End-to-end integration tests
+│   └── load-test.ps1 / .sh              ← KEDA auto-scaling load tests
+│
+├── 📊 assets/                            ← Documentation & diagrams
+│   ├── architecture-after.md            ← Modernized architecture reference
+│   ├── migration-checklist.md           ← 50-item legacy → modern checklist
+│   ├── legacy-assessment.md             ← Legacy system analysis
+│   ├── scaling-config.md                ← KEDA scaling rules reference
+│   └── screenshots/                     ← UI and API screenshots
+│
+├── 🐳 docker-compose.yml                ← Legacy VM simulation (MongoDB, RabbitMQ, SQL)
+├── 🐳 docker-compose.dapr.yml           ← Dapr sidecar overlay (Zipkin + sidecars)
+└── 🐳 docker-compose.override.yml       ← Dev overrides (source mounts, debug)
 ```
 
 ---
@@ -427,18 +446,26 @@ hey -z 60s -c 50 https://web-frontend.azurecontainerapps.io
 ### **🎮 LEVEL 8: Validate End-to-End**
 
 ```bash
-# 🎉 Test the full system
-# 1. Book an appointment via the web UI
-# 2. Upload a lab result (triggers background processing)
-# 3. Verify appointment reminder email sent
-# 4. Check Azure Monitor for logs and metrics
+# 🧪 Run the comprehensive E2E validation suite
+# PowerShell:
+.\scripts\validate-e2e.ps1
 
-# 🔍 Query logs with Copilot CLI
-gh copilot suggest "query container app logs for the last hour"
+# Bash:
+./scripts/validate-e2e.sh
 
-# ✅ Verify Dapr telemetry
-# ✅ Check Service Bus message flow
-# ✅ Confirm Blob Storage uploads
+# With Dapr sidecars running:
+.\scripts\validate-e2e.ps1 -DaprMode
+./scripts/validate-e2e.sh --dapr-mode
+
+# The E2E suite validates:
+# ✅ Health check all 3 services (API, Web, Worker)
+# ✅ Create a pet patient via API
+# ✅ Book an appointment (triggers pub/sub message)
+# ✅ Upload a lab result (simulated blob storage flow)
+# ✅ Verify background worker processes messages
+# ✅ Check Dapr sidecar health
+# ✅ Validate Azure Blob Storage integration (config + Bicep)
+# ✅ Docker container health status
 
 # 🏆 ACHIEVEMENT UNLOCKED: VM-to-Container Migration Master!
 ```
@@ -515,6 +542,36 @@ gh copilot suggest "query container app logs for the last hour"
 - 🔄 **CI/CD with GitHub Actions**
 - 🛡️ **Zero Trust Security**
 - 📊 **Observability with OpenTelemetry**
+
+---
+
+## 📊 DOCUMENTATION REFERENCE
+
+| Document | Description |
+|----------|-------------|
+| [`APPMODLAB.md`](APPMODLAB.md) | Full lab walkthrough with step-by-step instructions |
+| [`QUICKSTART.md`](QUICKSTART.md) | Quick-start guide to get running fast |
+| [`assets/architecture-after.md`](assets/architecture-after.md) | Modernized architecture: Container Apps topology, Dapr components, KEDA scaling, network flows |
+| [`assets/migration-checklist.md`](assets/migration-checklist.md) | 50-item checklist comparing legacy vs modernized for every concern |
+| [`assets/legacy-assessment.md`](assets/legacy-assessment.md) | Analysis of the legacy VM-based system |
+| [`assets/scaling-config.md`](assets/scaling-config.md) | KEDA auto-scaling rules and configuration |
+
+### **Scripts Reference** 🛠️
+
+| Script | Description |
+|--------|-------------|
+| `scripts/deploy-azure.ps1` / `.sh` | Deploy full Azure infrastructure + Container Apps |
+| `scripts/test-local.ps1` / `.sh` | Smoke test local Docker Compose services |
+| `scripts/validate-e2e.ps1` / `.sh` | Comprehensive E2E validation of the modernized system |
+| `scripts/load-test.ps1` / `.sh` | Generate load to verify KEDA auto-scaling |
+
+### **Infrastructure Files** ☁️
+
+| File | Resources |
+|------|-----------|
+| `infrastructure/main.bicep` | Log Analytics, Container Registry, Container Apps Environment |
+| `infrastructure/deploy.bicep` | 3 Container Apps with Dapr, KEDA scaling rules, env vars |
+| `infrastructure/azure-services.bicep` | Cosmos DB, Service Bus, Blob Storage, Azure SQL |
 
 ---
 
