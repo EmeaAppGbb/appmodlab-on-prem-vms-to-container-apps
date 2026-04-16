@@ -1,0 +1,19 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: default
+spec:
+  type: pubsub.azure.servicebus.topics
+  version: v1
+  metadata:
+    - name: connectionString
+      value: "<AZURE_SERVICE_BUS_CONNECTION_STRING>"
+    - name: maxDeliveryCount
+      value: "10"
+    - name: lockDurationInSec
+      value: "30"
+    - name: defaultMessageTimeToLiveInSec
+      value: "86400"
+    - name: maxConcurrentHandlers
+      value: "10"

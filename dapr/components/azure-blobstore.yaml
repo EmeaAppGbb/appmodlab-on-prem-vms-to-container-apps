@@ -1,0 +1,17 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: blobstore
+  namespace: default
+spec:
+  type: bindings.azure.blobstorage
+  version: v1
+  metadata:
+    - name: accountName
+      value: "<AZURE_STORAGE_ACCOUNT_NAME>"
+    - name: accountKey
+      value: "<AZURE_STORAGE_ACCOUNT_KEY>"
+    - name: containerName
+      value: "documents"
+    - name: decodeBase64
+      value: "true"

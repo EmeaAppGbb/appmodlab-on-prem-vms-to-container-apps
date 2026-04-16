@@ -1,26 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const axios = require('axios');
 const LabResult = require('../models/LabResult');
 
-// Configure multer for file uploads (legacy SMB share simulation)
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const uploadDir = '/app/shared-documents/lab-results';
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${file.originalname}`;
-        cb(null, uniqueName);
-    }
-});
+const DAPR_HTTP_PORT = process.env.DAPR_HTTP_PORT || '3500';
+const DAPR_BLOB_BINDING = process.env.DAPR_BLOB_BINDING || 'blobstore';
 
-const upload = multer({ storage });
+// Use multer memory storage — files are uploaded to Azure Blob Storage, not local disk
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Upload file content to Azure Blob Storage via Dapr output binding.
+ */
+async function uploadToBlob(blobName, fileBuffer, contentType) {
+    const daprUrl = `http://localhost:${DAPR_HTTP_PORT}/v1.0/bindings/${DAPR_BLOB_BINDING}`;
+    const payload = {
+        operation: 'create',
+        data: fileBuffer.toString('base64'),
+        metadata: {
+            blobName,
+            contentType: contentType || 'application/octet-stream'
+        }
+    };
+
+    await axios.post(daprUrl, payload);
+    return blobName;
+}
 
 // Get all lab results
 router.get('/', async (req, res) => {
@@ -42,23 +48,30 @@ router.get('/patient/:patientId', async (req, res) => {
     }
 });
 
-// Upload lab result file
+// Upload lab result file to Azure Blob Storage
 router.post('/upload', upload.single('file'), async (req, res) => {
     try {
+        let blobPath = null;
+
+        if (req.file) {
+            const blobName = `lab-results/${Date.now()}-${req.file.originalname}`;
+            blobPath = await uploadToBlob(blobName, req.file.buffer, req.file.mimetype);
+        }
+
         const labResult = new LabResult({
             patientId: req.body.patientId,
             patientName: req.body.patientName,
             testType: req.body.testType || 'General Lab Test',
             results: req.body.results,
-            filePath: req.file ? req.file.path : null,
+            filePath: blobPath,
             vetId: req.body.vetId,
             vetName: req.body.vetName,
             notes: req.body.notes
         });
-        
+
         await labResult.save();
-        
-        // Send to RabbitMQ for background processing (VM 3)
+
+        // Publish to message queue for background processing
         if (req.app.locals.publishToQueue) {
             req.app.locals.publishToQueue('lab_results', {
                 labResultId: labResult._id,
@@ -68,7 +81,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 filePath: labResult.filePath
             });
         }
-        
+
         res.status(201).json(labResult);
     } catch (err) {
         res.status(400).json({ error: err.message });

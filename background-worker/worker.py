@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-PawsCare Background Worker - Legacy VM 3
+PawsCare Background Worker
 Handles appointment reminders and lab result processing.
 Supports Dapr pub/sub (when DAPR_HTTP_PORT is set) or direct RabbitMQ (legacy).
+Uses Azure Blob Storage via Dapr bindings for document storage.
 """
 
 import os
 import sys
 import time
 import json
+import base64
 import requests
 from datetime import datetime
 
@@ -25,14 +27,44 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', '2525'))
 DAPR_HTTP_PORT = os.getenv('DAPR_HTTP_PORT')
 APP_PORT = int(os.getenv('APP_PORT', '8080'))
 
+DAPR_BLOB_BINDING = os.getenv('DAPR_BLOB_BINDING', 'blobstore')
+
 print(f"🐾 PawsCare Background Worker")
-print(f"📍 VM IP: 10.0.1.30 (simulated)")
 print(f"🔗 API Server: {API_SERVER_URL}")
 
 if DAPR_HTTP_PORT:
     print(f"✓ Dapr sidecar detected (HTTP port: {DAPR_HTTP_PORT}). Using Dapr pub/sub.")
+    print(f"☁ Using Azure Blob Storage via Dapr binding '{DAPR_BLOB_BINDING}'")
 else:
     print(f"🔗 RabbitMQ: {RABBITMQ_HOST}:{RABBITMQ_PORT} (legacy mode)")
+
+
+# --- Azure Blob Storage helpers via Dapr bindings ---
+
+def upload_to_blob_storage(blob_name, content_bytes):
+    """Upload a file to Azure Blob Storage via Dapr output binding."""
+    if not DAPR_HTTP_PORT:
+        print(f"   ⚠ Dapr not available, skipping blob upload for {blob_name}")
+        return False
+
+    dapr_url = f"http://localhost:{DAPR_HTTP_PORT}/v1.0/bindings/{DAPR_BLOB_BINDING}"
+    payload = {
+        "operation": "create",
+        "data": base64.b64encode(content_bytes).decode('utf-8'),
+        "metadata": {
+            "blobName": blob_name,
+            "contentType": "application/pdf"
+        }
+    }
+
+    try:
+        resp = requests.post(dapr_url, json=payload, timeout=30)
+        resp.raise_for_status()
+        print(f"   ☁ Uploaded to Azure Blob Storage: {blob_name}")
+        return True
+    except Exception as e:
+        print(f"   ✗ Blob upload failed for {blob_name}: {e}")
+        return False
 
 
 # --- Shared message processing logic ---
@@ -56,8 +88,13 @@ def handle_lab_result(data):
     print(f"   ⚙ Generating PDF report...")
     time.sleep(2)  # Simulate processing time
     print(f"   ✓ PDF report generated")
-    print(f"   📁 Copying to SMB share (\\\\10.0.1.10\\documents)")
-    print(f"   ✓ File copied to shared storage")
+
+    lab_result_id = data.get('labResultId', 'unknown')
+    blob_name = f"lab-results/report_{lab_result_id}.pdf"
+    # Simulated PDF content — in production, use reportlab to generate actual bytes
+    pdf_content = f"Lab Report for {data.get('patientName')} - {data.get('testType')}".encode('utf-8')
+    upload_to_blob_storage(blob_name, pdf_content)
+
     print(f"   ✓ Lab result processed successfully")
 
 

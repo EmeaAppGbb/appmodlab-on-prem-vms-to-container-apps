@@ -1,0 +1,97 @@
+ÔùÅ Explore Explore full codebase
+  Ôöé Read README.md
+  Ôöé   Ôöö L1:80 (80 lines read)
+  Ôöö Read requirements.txt
+      Ôöé background-worker\requirements.txt
+      Ôöö 7 lines read
+
+Now I have a thorough understanding of the codebase. Let me implement all 7 changes.
+
+ÔùÅ Read worker.py
+  Ôöé background-worker\worker.py
+  Ôöö 214 lines read
+
+ÔùÅ Read lab_processing.py
+  Ôöé background-worker\tasks\lab_processing.py
+  Ôöö 54 lines read
+
+ÔùÅ Read labResults.js
+  Ôöé api-server\routes\labResults.js
+  Ôöö 89 lines read
+
+ÔùÅ Read reports.py
+  Ôöé background-worker\tasks\reports.py
+  Ôöö 50 lines read
+
+ÔùÅ Read appsettings.json
+  Ôöé web-frontend\appsettings.json
+  Ôöö 23 lines read
+
+Good, I have all the file contents. Now let me create all the new files and update existing ones.
+
+ÔùÅ Create azure-statestore.yaml +20
+  Ôöö dapr\components\azure-statestore.yaml
+
+ÔùÅ Create azure-pubsub.yaml +20
+  Ôöö dapr\components\azure-pubsub.yaml
+
+ÔùÅ Create azure-blobstore.yaml +18
+  Ôöö dapr\components\azure-blobstore.yaml
+
+ÔùÅ Create azure-services.bicep +253
+  Ôöö infrastructure\azure-services.bicep
+
+Now let me update the existing files:
+
+ÔùÅ Edit worker.py +41 -4
+  Ôöö background-worker\worker.py
+
+ÔùÅ Edit lab_processing.py +70 -26
+  Ôöö background-worker\tasks\lab_processing.py
+
+ÔùÅ Edit labResults.js +35 -22
+  Ôöö api-server\routes\labResults.js
+
+ÔùÅ Edit appsettings.json +3 -2
+  Ôöö web-frontend\appsettings.json
+
+ÔùÅ Edit reports.py +27 -15
+  Ôöö background-worker\tasks\reports.py
+
+Now let me verify no SMB references remain and validate the changes:
+
+ÔùÅ List directory dapr\components
+  Ôöö 5 files found
+
+ÔùÅ Search (grep)
+  Ôöé "10\.0\.1\.10\\documents|SMB share|shared-documents|smb_share" in
+  Ôöé *.{py,js,json,yaml,yml}
+  Ôöö No matches found
+
+All SMB references have been removed from code files. Let me do a final verification of the key files:
+
+ÔùÅ Check git diff stats (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-on-prem-vms-to-container-apps && git
+  Ôöé --no-pager diff --stat
+  Ôöö 7 lines...
+
+All 7 changes are complete. Here's a summary:
+
+**New files created:**
+1. `dapr/components/azure-pubsub.yaml` ÔÇö Azure Service Bus pub/sub component
+2. `dapr/components/azure-statestore.yaml` ÔÇö Azure Cosmos DB state store component
+3. `dapr/components/azure-blobstore.yaml` ÔÇö Azure Blob Storage Dapr binding
+4. `infrastructure/azure-services.bicep` ÔÇö Bicep template with Cosmos DB (MongoDB API), Service Bus (with topics), Blob Storage, and Azure SQL Database
+
+**Files updated:**
+5. `background-worker/worker.py` ÔÇö Replaced SMB copy with `upload_to_blob_storage()` via Dapr binding
+6. `background-worker/tasks/lab_processing.py` ÔÇö Removed `copy_to_smb_share()`, added `_upload_to_blob()` and PDF-to-blob upload; `reports.py` ÔÇö Replaced SMB path with blob upload via shared helper
+7. `api-server/routes/labResults.js` ÔÇö Switched from multer disk storage to memory storage + Dapr blob binding upload
+8. `web-frontend/appsettings.json` ÔÇö Removed `SharedDocuments` SMB path, added `AzureBlobStorage` config
+
+All `\\10.0.1.10\documents` SMB references eliminated from code. All secrets use placeholders (`<AZURE_*>`). Bicep resources have secure defaults (TLS 1.2, disabled public access, no blob public access).
+
+
+Changes   +487 -69
+Requests  3 Premium (3m 45s)
+Tokens    Ôåæ 492.0k ÔÇó Ôåô 18.8k ÔÇó 412.2k (cached)
