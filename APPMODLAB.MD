@@ -11,7 +11,7 @@ modernizationTools: ["Docker", "Dapr", "KEDA"]
 agenticTools: []
 tags: ["containerization", "container-apps", "dapr", "keda", "multi-language"]
 extensions: ["github.copilot"]
-thumbnail: ""
+thumbnail: "https://raw.githubusercontent.com/EmeaAppGbb/appmodlab-on-prem-vms-to-container-apps/main/assets/thumbnail-gpt-image.png"
 video: ""
 version: "1.0.0"
 ---
